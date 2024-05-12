@@ -40,13 +40,15 @@ const wrapText = (text: string, width: number): string[] => {
 	return lines;
 };
 
-const spinnerAnimation = async (signal: AbortSignal) => {
-	let frameCount = 0;
+const spinnerAnimation = async (signal: AbortSignal, message?: string, finishedMessage?: string) => {
 	while (true) {
 		for (const frame of ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]) {
-			if (signal.aborted) return;
+			if (signal.aborted) {
+				finishedMessage && console.log("\x1b[1M" + finishedMessage);
+				return;
+			}
 
-			console.log((frameCount++ !== 0 ? "\x1b[1A" : "") + frame);
+			console.log(frame, (message || "") + "\x1b[1A");
 			await new Promise((resolve) => setTimeout(resolve, 100));
 		}
 	}
@@ -77,7 +79,7 @@ type Data = {help: boolean; name: string; search: string; season: number; episod
 const browser = puppeteer.launch({
 	executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
 	defaultViewport: {width: 1920, height: 1080},
-	headless: false,
+	// headless: false,
 	args: [
 		//
 		`--disable-extensions-except=${path.join(Deno.cwd(), "extensions", "cjpalhdlnbpafiamejdnhcphjbkeiagm", "1.50.0_0")}`,
@@ -129,6 +131,9 @@ type SearchResponseAnimeEntry = {
 
 let animeUrl = "";
 
+const animeSearchSpinner = new AbortController();
+spinnerAnimation(animeSearchSpinner.signal, "Searching for anime...");
+
 const search = (
 	(await (
 		await fetch("https://aniworld.to/ajax/search", {
@@ -152,6 +157,7 @@ const search = (
 	}));
 
 const maxLineWidth = Math.min(64, Deno.consoleSize().columns - 4);
+animeSearchSpinner.abort();
 
 if (data.name) {
 	// Check if there is an exact match (case insensitive)
@@ -169,13 +175,17 @@ if (data.name) {
 
 animeUrl = "https://aniworld.to" + animeUrl;
 
+const animePageSpinner = new AbortController();
+spinnerAnimation(animePageSpinner.signal, "Loading anime page...");
+
 const animePageText = await (await fetch(animeUrl)).text();
 const animePageDom = new DOMParser().parseFromString(animePageText, "text/html");
 const animePageSeasonsElements = Array.from(animePageDom?.querySelector("#stream > ul")?.querySelectorAll("li > a") || []);
 
 const totalEpisodeUrls: string[][] = [];
+animePageSpinner.abort();
 
-console.log("\nSeasons:");
+console.log("Seasons:");
 for (const element of animePageSeasonsElements) {
 	let text = element.textContent;
 	const isMovie = (element as unknown as HTMLAnchorElement)?.getAttribute("href")?.includes("film");
@@ -211,24 +221,37 @@ while (data.season === -1 || data.episode === -1) {
 	}
 }
 
+const seasonSpinner = new AbortController();
+spinnerAnimation(seasonSpinner.signal, "Loading episode...");
+
 const page = await (await browser)?.newPage();
 
 await page?.goto(totalEpisodeUrls[data.season - 1][data.episode - 1].split("--")[0]);
 
-const streamFound = false;
+let stream = "";
 
-while (!streamFound) {
+while (stream === "") {
 	const html = [];
 	html.push(await page?.content());
 	for (const frame of page.frames()) html.push(await frame.content());
 
 	// Now, find all urls containing "m3u8"
-	console.log(html.join("\n").match(/https:\/\/[^"]+\.m3u8/g));
+	stream = String(html.join("\n").match(/https:\/\/[^"]+\.m3u8.+"/g) || "").replaceAll('"', "");
 
 	await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
-await new Promise((resolve) => setTimeout(resolve, 1000000000));
+seasonSpinner.abort();
+
+console.log("Found stream        ");
 
 await (await browser)?.close();
+
+// Possible options: Open in vlc, console.log the stream url, download the stream (with ffmpeg) (either as mp4, mov or m3u8 + ts)
+new Deno.Command("C:/Program Files/VideoLAN/VLC/vlc.exe", {args: [stream]}).spawn();
+
+if (data.download) {
+
+}
+
 Deno.exit(0);
