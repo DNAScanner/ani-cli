@@ -12,13 +12,11 @@ const helpMessage = [
 	" -h, --help          Show this help message",
 	" -n, --name          Name of the anime",
 	" -S, --search        Search for the anime",
-	" -s, --season        Season number",
-	" -e, --episode       Episode number",
-	" -se,                Season and episode number combined (-> season:episode)",
+	" -se,                Season and episode number combined (-> season.episode)",
 	" -d, --download      Download the episode to the current directory",
 	"",
 	"Example:",
-	" \x1b[32mani-cli\x1b[0m \x1b[33m--name\x1b[0m Horimiya \x1b[33m--season\x1b[0m 1 \x1b[33m--episode\x1b[0m 1 \x1b[33m--download\x1b[0m",
+	" \x1b[32mani-cli\x1b[0m \x1b[33m--name\x1b[0m Horimiya \x1b[33m-se\x1b[0m 2.1 \x1b[33m--download\x1b[0m",
 ].join("\n");
 
 const wrapText = (text: string, width: number): string[] => {
@@ -74,7 +72,7 @@ const selectAnime = (search: SearchResponseAnimeEntry[]): SearchResponseAnimeEnt
 	return selectedAnime as SearchResponseAnimeEntry;
 };
 
-type Data = {help: boolean; name: string; search: string; season: number; episode: number; download: boolean};
+type Data = {help: boolean; name: string; search: string; season: number; episode: number; episodeName?: string; download: string};
 
 const browser = puppeteer.launch({
 	executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -93,9 +91,10 @@ const data: Data = {
 	help: Deno.args.includes("--help") || Deno.args.includes("-h") || Deno.args.includes("-?"),
 	name: (Deno.args.includes("--name") && Deno.args[Deno.args.indexOf("--name") + 1]) || (Deno.args.includes("-n") && Deno.args[Deno.args.indexOf("-n") + 1]) || "",
 	search: (Deno.args.includes("--search") && Deno.args[Deno.args.indexOf("--search") + 1]) || (Deno.args.includes("-S") && Deno.args[Deno.args.indexOf("-S") + 1]) || "",
-	season: (Deno.args.includes("--season") && Number(Deno.args[Deno.args.indexOf("--season") + 1])) || (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[0])) || -1,
-	episode: (Deno.args.includes("--episode") && Number(Deno.args[Deno.args.indexOf("--episode") + 1])) || (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[1])) || -1,
-	download: Deno.args.includes("--download"),
+	season: (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[0])) || -1,
+	episode: (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[1])) || -1,
+	episodeName: "",
+	download: (Deno.args.includes("--download") && Deno.args[Deno.args.indexOf("--download") + 1]) || (Deno.args.includes("-d") && Deno.args[Deno.args.indexOf("-d") + 1]) || "",
 };
 
 // (async () => {
@@ -115,7 +114,7 @@ if (!data.name)
 	while (!data.search) {
 		data.season = -1;
 		data.episode = -1;
-		data.download = false;
+		data.download = "";
 
 		data.search = prompt("What anime are you looking for?") || "";
 	}
@@ -161,16 +160,19 @@ animeSearchSpinner.abort();
 
 if (data.name) {
 	// Check if there is an exact match (case insensitive)
-	const exactMatch = search.find((entry) => entry.title.toLowerCase() === data.name.toLowerCase());
-	if (exactMatch) {
-		animeUrl = exactMatch.link;
+	if (search.length === 1) {
+		animeUrl = search[0].link;
 	} else {
 		listAnime(search);
-		animeUrl = selectAnime(search).link;
+		const {link, title} = selectAnime(search);
+		animeUrl = link;
+		data.name = title;
 	}
 } else {
 	listAnime(search);
-	animeUrl = selectAnime(search).link;
+	const {link, title} = selectAnime(search);
+	animeUrl = link;
+	data.name = title;
 }
 
 animeUrl = "https://aniworld.to" + animeUrl;
@@ -185,7 +187,9 @@ const animePageSeasonsElements = Array.from(animePageDom?.querySelector("#stream
 const totalEpisodeUrls: string[][] = [];
 animePageSpinner.abort();
 
-console.log("Seasons:");
+const logSeasons = data.season === -1 || data.episode === -1;
+
+logSeasons && console.log("Seasons:" + " ".repeat(16));
 for (const element of animePageSeasonsElements) {
 	let text = element.textContent;
 	const isMovie = (element as unknown as HTMLAnchorElement)?.getAttribute("href")?.includes("film");
@@ -195,7 +199,7 @@ for (const element of animePageSeasonsElements) {
 	if (text === "Filme") text = "Movies";
 	if (text.match(/^\d+$/)) text = "Season " + text;
 
-	console.log(` ${animePageSeasonsElements.indexOf(element) + 1}. \x1b[32m${text}\x1b[0m`);
+	logSeasons && console.log(` ${animePageSeasonsElements.indexOf(element) + 1}. \x1b[32m${text}\x1b[0m`);
 
 	const seasonPageText = await (await fetch("https://aniworld.to" + (element as unknown as HTMLAnchorElement).getAttribute("href"))).text();
 	const seasonPageDom = new DOMParser().parseFromString(seasonPageText, "text/html");
@@ -205,7 +209,7 @@ for (const element of animePageSeasonsElements) {
 		if ((episodeElement as unknown as HTMLAnchorElement).querySelector("strong")?.textContent && !seasonEpisodeUrls.includes(string)) seasonEpisodeUrls.push(string);
 	}
 
-	for (const episode of seasonEpisodeUrls) console.log(" ".repeat(5) + (seasonEpisodeUrls.indexOf(episode) + 1) + ". \x1b[33m" + episode.split("--").pop() + "\x1b[0m");
+	for (const episode of seasonEpisodeUrls) logSeasons && console.log(" ".repeat(5) + (seasonEpisodeUrls.indexOf(episode) + 1) + ". \x1b[33m" + episode.split("--").pop() + "\x1b[0m");
 
 	totalEpisodeUrls.push(seasonEpisodeUrls);
 }
@@ -220,9 +224,15 @@ while (data.season === -1 || data.episode === -1) {
 		}
 	}
 }
+if (data.season < 1 || data.season > totalEpisodeUrls.length || data.episode < 1 || data.episode > totalEpisodeUrls[data.season - 1].length) {
+	console.log("Invalid season or episode number");
+	Deno.exit(1);
+}
+
+data.episodeName = totalEpisodeUrls[data.season - 1][data.episode - 1].split("--").pop() || "";
 
 const seasonSpinner = new AbortController();
-spinnerAnimation(seasonSpinner.signal, "Loading episode...");
+spinnerAnimation(seasonSpinner.signal, "Loading episode..." + " ".repeat(4));
 
 const page = await (await browser)?.newPage();
 
@@ -243,15 +253,75 @@ while (stream === "") {
 
 seasonSpinner.abort();
 
-console.log("Found stream        ");
+console.log("Found stream" + " ".repeat(8));
 
 await (await browser)?.close();
 
 // Possible options: Open in vlc, console.log the stream url, download the stream (with ffmpeg) (either as mp4, mov or m3u8 + ts)
-new Deno.Command("C:/Program Files/VideoLAN/VLC/vlc.exe", {args: [stream]}).spawn();
+// new Deno.Command("C:/Program Files/VideoLAN/VLC/vlc.exe", {args: [stream]}).spawn();
+
+if (!data.download) {
+	console.log("How would you like to watch this episode?");
+	console.log(" 1. \x1b[32mOpen in VLC\x1b[0m");
+	console.log(" 2. \x1b[32mPrint out stream URL\x1b[0m");
+	console.log(" 3. \x1b[32mDownload episode\x1b[0m");
+
+	let choice = 0;
+
+	while (choice < 1 || choice > 3) choice = Number(prompt("Enter a number:") || 0);
+
+	switch (choice) {
+		case 1: {
+			new Deno.Command("C:/Program Files/VideoLAN/VLC/vlc.exe", {args: [stream]}).spawn();
+			break;
+		}
+
+		case 2: {
+			console.log(stream);
+			break;
+		}
+
+		case 3: {
+			// mp4, mov or m3u8 + ts?
+			console.log("What format would you like to download the episode in?");
+			console.log(" 1. \x1b[32mMP4\x1b[0m");
+			console.log(" 2. \x1b[32mMOV\x1b[0m");
+			console.log(" 3. \x1b[32mM3U8 + TS\x1b[0m");
+
+			let format = 0;
+
+			while (format < 1 || format > 3) format = Number(prompt("Enter a number:") || 0);
+
+			switch (format) {
+				case 1: {
+					data.download = "mp4";
+					break;
+				}
+
+				case 2: {
+					data.download = "mov";
+					break;
+				}
+
+				case 3: {
+					data.download = "m3u8";
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
 
 if (data.download) {
+	const path = data.download === "m3u8" ? `downloads/${data.name}/${data.season}. ${data.episodeName}/` : `downloads/${data.name}/`;
+	Deno.mkdirSync(path, {recursive: true});
 
+	const process = new Deno.Command("ffmpeg", {
+		args: ["-i", stream, path + (data.download === "m3u8" ? "master.m3u8" : `${data.season}. ${data.episodeName}.${data.download}`)],
+	}).spawn();
+
+	await process.status;
 }
 
 Deno.exit(0);
