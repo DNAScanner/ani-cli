@@ -346,7 +346,7 @@ if (data.download) {
 	else args.push(path + `${data.season}. ${data.episodeName}.${data.download}`);
 
 	const process = new Deno.Command("ffmpeg", {
-		args: ["-i", stream, "-hls_time", "10", "-hls_list_size", "0", path + (data.download === "m3u8" ? "master.m3u8" : `${data.season}. ${data.episodeName}.${data.download}`)],
+		args,
 	}).spawn();
 
 	await process.status;
