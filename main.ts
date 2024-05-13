@@ -33,12 +33,12 @@ let adblockPath =
 				.at(-1)}/AppData/Local/Google/Chrome/User Data/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`
 		: `/home/${new TextDecoder().decode(new Deno.Command("whoami").outputSync().stdout).replace("\n", "")}/.config/google-chrome/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`;
 
-try {
-	adblockPath += "/" + Array.from(Deno.readDirSync(adblockPath))[0].name;
-} catch {
-	console.log(`uBlock Origin does not seem to be installed at ${adblockPath}`);
-	Deno.exit(1);
-}
+// try {
+// 	adblockPath += "/" + Array.from(Deno.readDirSync(adblockPath))[0].name;
+// } catch {
+// 	console.log(`uBlock Origin does not seem to be installed at ${adblockPath}`);
+// 	Deno.exit(1);
+// }
 
 const wrapText = (text: string, width: number): string[] => {
 	const words = text.split(" ");
