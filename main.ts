@@ -1,6 +1,8 @@
 import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
-import * as path from "https://deno.land/std@0.197.0/path/mod.ts";
 import {DOMParser} from "https://deno.land/x/deno_dom@v0.1.45/deno-dom-wasm.ts";
+import {load} from "https://deno.land/std@0.188.0/dotenv/mod.ts";
+
+const env = await load({export: true});
 
 const helpMessage = [
 	//
@@ -11,7 +13,7 @@ const helpMessage = [
 	"Options:",
 	" -h, --help          Show this help message",
 	" -n, --name          Name of the anime",
-	" -S, --search        Search for the anime",
+	" -s, --search        Search for the anime",
 	" -se,                Season and episode number combined (-> season.episode)",
 	" -d, --download      Download the episode to the current directory",
 	"",
@@ -19,12 +21,23 @@ const helpMessage = [
 	" \x1b[32mani-cli\x1b[0m \x1b[33m--name\x1b[0m Horimiya \x1b[33m-se\x1b[0m 2.1 \x1b[33m--download\x1b[0m",
 ].join("\n");
 
-let adblockPath = "C:/Users/liam/AppData/Local/Google/Chrome/User Data/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm";
+const chromeExecutablePath = env.CHROME || Deno.build.os === "windows" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/opt/google/chrome/chrome";
+const vlcPath = env.VLC || Deno.build.os === "windows" ? "C:/Program Files/VideoLAN/VLC/vlc.exe" : "/usr/bin/vlc";
+let adblockPath =
+	env.ADBLOCK || Deno.build.os === "windows"
+		? `C:/Users/${new TextDecoder()
+				.decode(new Deno.Command("powershell", {args: ["whoami"]}).outputSync().stdout)
+				.replace("\n", "")
+				.replace("\r", "")
+				.split("\\")
+				.at(-1)}/AppData/Local/Google/Chrome/User Data/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`
+		: `/home/${new TextDecoder().decode(new Deno.Command("whoami").outputSync().stdout).replace("\n", "")}/.config/google-chrome/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`;
 
 try {
 	adblockPath += "/" + Array.from(Deno.readDirSync(adblockPath))[0].name;
 } catch {
 	console.log(`uBlock Origin does not seem to be installed at ${adblockPath}`);
+	Deno.exit(1);
 }
 
 const wrapText = (text: string, width: number): string[] => {
@@ -83,7 +96,7 @@ const selectAnime = (search: SearchResponseAnimeEntry[]): SearchResponseAnimeEnt
 type Data = {help: boolean; name: string; search: string; season: number; episode: number; episodeName?: string; download: string};
 
 const browser = puppeteer.launch({
-	executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
+	executablePath: chromeExecutablePath,
 	defaultViewport: {width: 1920, height: 1080},
 	// headless: false,
 	args: [
@@ -98,7 +111,7 @@ const browser = puppeteer.launch({
 const data: Data = {
 	help: Deno.args.includes("--help") || Deno.args.includes("-h") || Deno.args.includes("-?"),
 	name: (Deno.args.includes("--name") && Deno.args[Deno.args.indexOf("--name") + 1]) || (Deno.args.includes("-n") && Deno.args[Deno.args.indexOf("-n") + 1]) || "",
-	search: (Deno.args.includes("--search") && Deno.args[Deno.args.indexOf("--search") + 1]) || (Deno.args.includes("-S") && Deno.args[Deno.args.indexOf("-S") + 1]) || "",
+	search: (Deno.args.includes("--search") && Deno.args[Deno.args.indexOf("--search") + 1]) || (Deno.args.includes("-s") && Deno.args[Deno.args.indexOf("-s") + 1]) || "",
 	season: (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[0])) || -1,
 	episode: (Deno.args.includes("-se") && Number(Deno.args[Deno.args.indexOf("-se") + 1]?.split(".")[1])) || -1,
 	episodeName: "",
@@ -281,7 +294,7 @@ if (!data.download) {
 
 	switch (choice) {
 		case 1: {
-			new Deno.Command("C:/Program Files/VideoLAN/VLC/vlc.exe", {args: [stream]}).spawn();
+			new Deno.Command(vlcPath, {args: [stream]}).spawn();
 			break;
 		}
 
@@ -321,8 +334,6 @@ if (!data.download) {
 		}
 	}
 }
-
-console.log(data);
 
 if (data.download) {
 	const path = data.download === "m3u8" ? `downloads/${data.name}/${data.season}. ${data.episodeName}/` : `downloads/${data.name}/`;
