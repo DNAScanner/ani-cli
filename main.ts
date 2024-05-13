@@ -19,6 +19,14 @@ const helpMessage = [
 	" \x1b[32mani-cli\x1b[0m \x1b[33m--name\x1b[0m Horimiya \x1b[33m-se\x1b[0m 2.1 \x1b[33m--download\x1b[0m",
 ].join("\n");
 
+let adblockPath = "C:/Users/liam/AppData/Local/Google/Chrome/User Data/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm";
+
+try {
+	adblockPath += "/" + Array.from(Deno.readDirSync(adblockPath))[0].name;
+} catch {
+	console.log(`uBlock Origin does not seem to be installed at ${adblockPath}`);
+}
+
 const wrapText = (text: string, width: number): string[] => {
 	const words = text.split(" ");
 	const lines: string[] = [];
@@ -80,8 +88,8 @@ const browser = puppeteer.launch({
 	// headless: false,
 	args: [
 		//
-		`--disable-extensions-except=${path.join(Deno.cwd(), "extensions", "cjpalhdlnbpafiamejdnhcphjbkeiagm", "1.50.0_0")}`,
-		`--load-extension=${path.join(Deno.cwd(), "extensions", "cjpalhdlnbpafiamejdnhcphjbkeiagm", "1.50.0_0")}`,
+		`--disable-extensions-except=${adblockPath}`,
+		`--load-extension=${adblockPath}`,
 		"--mute-audio",
 		"--no-sandbox",
 	],
