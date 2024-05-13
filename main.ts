@@ -162,6 +162,7 @@ if (data.name) {
 	// Check if there is an exact match (case insensitive)
 	if (search.length === 1) {
 		animeUrl = search[0].link;
+		data.name = search[0].title;
 	} else {
 		listAnime(search);
 		const {link, title} = selectAnime(search);
@@ -313,12 +314,20 @@ if (!data.download) {
 	}
 }
 
+console.log(data);
+
 if (data.download) {
 	const path = data.download === "m3u8" ? `downloads/${data.name}/${data.season}. ${data.episodeName}/` : `downloads/${data.name}/`;
 	Deno.mkdirSync(path, {recursive: true});
 
+	const args = [];
+
+	args.push("-i", stream);
+	if (data.download === "m3u8") args.push("-hls_time", "10", "-hls_list_size", "0", path + "master.m3u8");
+	else args.push(path + `${data.season}. ${data.episodeName}.${data.download}`);
+
 	const process = new Deno.Command("ffmpeg", {
-		args: ["-i", stream, path + (data.download === "m3u8" ? "master.m3u8" : `${data.season}. ${data.episodeName}.${data.download}`)],
+		args: ["-i", stream, "-hls_time", "10", "-hls_list_size", "0", path + (data.download === "m3u8" ? "master.m3u8" : `${data.season}. ${data.episodeName}.${data.download}`)],
 	}).spawn();
 
 	await process.status;
