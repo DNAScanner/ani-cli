@@ -2,7 +2,17 @@ import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 import {DOMParser} from "https://deno.land/x/deno_dom@v0.1.45/deno-dom-wasm.ts";
 import {load} from "https://deno.land/std@0.188.0/dotenv/mod.ts";
 
-const env = await load({export: true});
+const programPath = /* Get the scripts location */ Deno.execPath().split("/").pop()?.includes("deno") ? import.meta.url.replace("file:///", "").split("/").slice(0, -1).join("/") : Deno.execPath().replaceAll("\\", "/").split("/").slice(0, -1).join("/");
+
+const env = await load({export: true, envPath: programPath + "/.env"});
+
+const watchedEpisodes = [];
+
+try {
+	for (const watchedEpisodeUrl of (Deno.readTextFileSync(programPath + "/watched.txt")).split("\n").map(entry => entry.replaceAll("\r", "")) as string[]) watchedEpisodes.push(watchedEpisodeUrl);
+} catch {
+	null
+}
 
 const helpMessage = [
 	//
@@ -23,15 +33,15 @@ const helpMessage = [
 
 const chromeExecutablePath = env.CHROME || Deno.build.os === "windows" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/opt/google/chrome/chrome";
 const vlcPath = env.VLC || Deno.build.os === "windows" ? "C:/Program Files/VideoLAN/VLC/vlc.exe" : "/usr/bin/vlc";
-let adblockPath =
+const adblockPath =
 	env.ADBLOCK || Deno.build.os === "windows"
 		? `C:/Users/${new TextDecoder()
 				.decode(new Deno.Command("powershell", {args: ["whoami"]}).outputSync().stdout)
-				.replace("\n", "")
-				.replace("\r", "")
+				.replaceAll("\n", "")
+				.replaceAll("\r", "")
 				.split("\\")
 				.at(-1)}/AppData/Local/Google/Chrome/User Data/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`
-		: `/home/${new TextDecoder().decode(new Deno.Command("whoami").outputSync().stdout).replace("\n", "")}/.config/google-chrome/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`;
+		: `/home/${new TextDecoder().decode(new Deno.Command("whoami").outputSync().stdout).replaceAll("\n", "")}/.config/google-chrome/Default/Extensions/cjpalhdlnbpafiamejdnhcphjbkeiagm`;
 
 // try {
 // 	adblockPath += "/" + Array.from(Deno.readDirSync(adblockPath))[0].name;
