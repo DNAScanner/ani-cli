@@ -2,6 +2,8 @@
 
 **ani-cli** is a self-made CLI tool to find, watch or download anime from inside your terminal. This program uses puppeteer, a browser automation library, to scrape data from the web. In this case, all data including the stream itself is provided by [aniworld.to](https://aniworld.to), a german anime streaming site
 
+⚠️ **Note:** This project is for educational purposes only. I do not encourage any illegal activities. Please respect the laws of your country
+
 ## Usage
 
 ```
