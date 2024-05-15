@@ -346,7 +346,7 @@ if (!data.download) {
 }
 
 if (data.download) {
-	const path = data.download === "m3u8" ? `downloads/${data.name}/${data.season}. ${data.episodeName}/` : `downloads/${data.name}/`;
+	const path = data.download === "m3u8" ? `${data.name}/${data.season}. ${data.episodeName}/` : `${data.name}/`;
 	Deno.mkdirSync(path, {recursive: true});
 
 	const args = [];
