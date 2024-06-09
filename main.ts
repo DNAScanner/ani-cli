@@ -31,7 +31,7 @@ const helpMessage = [
 	" \x1b[32mani-cli\x1b[0m \x1b[33m--name\x1b[0m Horimiya \x1b[33m-se\x1b[0m 2.1 \x1b[33m--download\x1b[0m",
 ].join("\n");
 
-const chromeExecutablePath = env.CHROME || Deno.build.os === "windows" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/opt/google/chrome/chrome";
+const chromeExecutablePath = env.CHROME || Deno.build.os === "windows" ? "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" : "/opt/google/chrome/chrome";
 const vlcPath = env.VLC || Deno.build.os === "windows" ? "C:/Program Files/VideoLAN/VLC/vlc.exe" : "/usr/bin/vlc";
 const adblockPath =
 	env.ADBLOCK || Deno.build.os === "windows"
